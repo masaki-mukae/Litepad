@@ -1,0 +1,800 @@
+<title>サクラエディタ機能棚卸し</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;800&family=Noto+Sans+JP:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#f7f5f2;
+  --surface:#ffffff;
+  --surface-alt:#efece6;
+  --ink:#211e1c;
+  --ink-dim:#726b63;
+  --ink-faint:#9c9388;
+  --border:#e2ddd4;
+  --accent:#a94a68;
+  --accent-ink:#7a3149;
+  --accent-soft:#f3dde3;
+  --pri-essential:#2c3a63;
+  --pri-essential-soft:#dee2ee;
+  --pri-important:#a94a68;
+  --pri-important-soft:#f3dde3;
+  --pri-deferred:#8a8175;
+  --pri-deferred-soft:#e9e4da;
+  --code-bg:#efece6;
+  --shadow: 0 1px 2px rgba(33,30,28,0.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#18161a;
+    --surface:#211e21;
+    --surface-alt:#29262a;
+    --ink:#ede8e6;
+    --ink-dim:#a89f9c;
+    --ink-faint:#756c6a;
+    --border:#3a3438;
+    --accent:#e393ab;
+    --accent-ink:#f0b4c4;
+    --accent-soft:#402631;
+    --pri-essential:#93a3d9;
+    --pri-essential-soft:#232a45;
+    --pri-important:#e393ab;
+    --pri-important-soft:#3d2530;
+    --pri-deferred:#b0a89d;
+    --pri-deferred-soft:#332f2a;
+    --code-bg:#29262a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#18161a;
+  --surface:#211e21;
+  --surface-alt:#29262a;
+  --ink:#ede8e6;
+  --ink-dim:#a89f9c;
+  --ink-faint:#756c6a;
+  --border:#3a3438;
+  --accent:#e393ab;
+  --accent-ink:#f0b4c4;
+  --accent-soft:#402631;
+  --pri-essential:#93a3d9;
+  --pri-essential-soft:#232a45;
+  --pri-important:#e393ab;
+  --pri-important-soft:#3d2530;
+  --pri-deferred:#b0a89d;
+  --pri-deferred-soft:#332f2a;
+  --code-bg:#29262a;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+*{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic",-apple-system,sans-serif;
+  font-size:15.5px;
+  line-height:1.75;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{ background:var(--accent-soft); color:var(--accent-ink); }
+
+a{ color:var(--accent-ink); text-decoration-color:var(--accent-soft); text-underline-offset:2px; }
+a:hover{ text-decoration-color:currentColor; }
+a:focus-visible, button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+h1,h2,h3{
+  font-family:"Shippori Mincho",serif;
+  text-wrap:balance;
+  font-weight:600;
+  color:var(--ink);
+}
+
+code, .mono{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+}
+
+.shell{
+  display:grid;
+  grid-template-columns: 248px minmax(0,1fr);
+  max-width:1180px;
+  margin:0 auto;
+}
+
+/* ---------- Masthead ---------- */
+.masthead{
+  grid-column:1 / -1;
+  padding: 3.2rem clamp(1.25rem,4vw,3rem) 2.4rem;
+  border-bottom:1px solid var(--border);
+}
+.masthead .kicker{
+  display:flex;
+  align-items:center;
+  gap:.6rem;
+  font-family:"JetBrains Mono",monospace;
+  font-size:.72rem;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--accent-ink);
+  margin-bottom:1rem;
+}
+.masthead .kicker::before{
+  content:"";
+  width:1.6em; height:1.6em;
+  background: radial-gradient(circle at 30% 30%, var(--accent-soft), transparent 70%);
+  border:1px solid var(--accent);
+  border-radius:50%;
+  display:inline-block;
+}
+.masthead h1{
+  font-size:clamp(1.9rem, 3.2vw, 2.6rem);
+  margin:0 0 .6rem;
+  letter-spacing:.01em;
+}
+.masthead .lede{
+  max-width:62ch;
+  color:var(--ink-dim);
+  font-size:1.02rem;
+  margin:0 0 1.6rem;
+}
+.meta-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.55rem .9rem;
+  font-size:.82rem;
+  color:var(--ink-dim);
+}
+.meta-row span{
+  display:inline-flex; align-items:center; gap:.4em;
+  padding:.32em .75em;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:var(--surface);
+}
+.meta-row .mono{ color:var(--ink); }
+
+/* ---------- Sidebar nav ---------- */
+nav.toc{
+  padding: 2rem 1.1rem 2rem 1.6rem;
+  position:sticky;
+  top:0;
+  align-self:start;
+  max-height:100vh;
+  overflow-y:auto;
+}
+nav.toc .toc-title{
+  font-family:"JetBrains Mono",monospace;
+  font-size:.68rem;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--ink-faint);
+  margin:0 0 .9rem;
+}
+nav.toc ol{
+  list-style:none;
+  margin:0; padding:0;
+  display:flex; flex-direction:column;
+  gap:.15rem;
+  counter-reset:tocnum;
+}
+nav.toc li a{
+  counter-increment:tocnum;
+  display:flex;
+  gap:.6em;
+  padding:.4rem .5rem;
+  border-radius:6px;
+  color:var(--ink-dim);
+  font-size:.86rem;
+  text-decoration:none;
+}
+nav.toc li a::before{
+  content: counter(tocnum, decimal-leading-zero);
+  font-family:"JetBrains Mono",monospace;
+  font-size:.76rem;
+  color:var(--ink-faint);
+}
+nav.toc li a:hover{ background:var(--surface-alt); color:var(--ink); }
+
+/* ---------- Main content ---------- */
+main{
+  padding: 2.4rem clamp(1.25rem,4vw,3rem) 5rem;
+  min-width:0;
+}
+section{
+  padding-top:1.4rem;
+  margin-top:1.4rem;
+  border-top:1px solid var(--border);
+}
+section:first-of-type{ border-top:none; margin-top:0; }
+section h2{
+  font-size:1.5rem;
+  display:flex;
+  align-items:baseline;
+  gap:.6rem;
+  margin:0 0 .3rem;
+}
+section h2 .num{
+  font-family:"JetBrains Mono",monospace;
+  font-size:.85rem;
+  color:var(--accent-ink);
+  font-weight:500;
+}
+section > .section-intro{
+  color:var(--ink-dim);
+  max-width:70ch;
+  margin:0 0 1.4rem;
+}
+h3{
+  font-size:1.05rem;
+  margin:1.6rem 0 .6rem;
+}
+p{ max-width:72ch; }
+
+/* ---------- Definition intro cards ---------- */
+.priority-legend{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:.8rem;
+  margin:1.2rem 0 0;
+}
+.legend-card{
+  border:1px solid var(--border);
+  background:var(--surface);
+  border-radius:8px;
+  padding:.9rem 1rem;
+  box-shadow:var(--shadow);
+}
+.legend-card .pill{ margin-bottom:.5rem; }
+.legend-card p{ margin:0; font-size:.86rem; color:var(--ink-dim); }
+
+/* ---------- Pills ---------- */
+.pill{
+  display:inline-flex; align-items:center;
+  font-family:"JetBrains Mono",monospace;
+  font-size:.72rem; letter-spacing:.02em;
+  padding:.24em .7em;
+  border-radius:999px;
+  white-space:nowrap;
+}
+.pill.essential{ background:var(--pri-essential-soft); color:var(--pri-essential); }
+.pill.important{ background:var(--pri-important-soft); color:var(--pri-important); }
+.pill.deferred{ background:var(--pri-deferred-soft); color:var(--pri-deferred); }
+
+/* ---------- Category cards (command groups) ---------- */
+.card-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:.9rem;
+  margin-top:1rem;
+}
+.cmd-card{
+  border:1px solid var(--border);
+  background:var(--surface);
+  border-radius:8px;
+  padding:1rem 1.15rem;
+}
+.cmd-card .row1{
+  display:flex; justify-content:space-between; align-items:baseline;
+  gap:.6rem; margin-bottom:.35rem;
+}
+.cmd-card h4{
+  margin:0; font-size:.98rem; font-weight:700;
+  font-family:"Noto Sans JP",sans-serif;
+}
+.cmd-card .range{
+  font-family:"JetBrains Mono",monospace;
+  font-size:.72rem;
+  color:var(--ink-faint);
+  white-space:nowrap;
+}
+.cmd-card .desc{ font-size:.87rem; color:var(--ink-dim); margin:0 0 .6rem; }
+.cmd-card .impl{
+  font-family:"JetBrains Mono",monospace;
+  font-size:.74rem;
+  color:var(--accent-ink);
+  background:var(--code-bg);
+  border-radius:5px;
+  padding:.3rem .55rem;
+  display:inline-block;
+  word-break:break-all;
+}
+
+/* ---------- Tables ---------- */
+.table-wrap{ overflow-x:auto; margin:1rem 0 1.6rem; border:1px solid var(--border); border-radius:8px; }
+table{ border-collapse:collapse; width:100%; min-width:560px; font-size:.88rem; }
+thead th{
+  text-align:left;
+  font-family:"JetBrains Mono",monospace;
+  font-size:.7rem; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink-faint);
+  background:var(--surface-alt);
+  padding:.65rem .9rem;
+  border-bottom:1px solid var(--border);
+  position:sticky; top:0;
+}
+tbody td{
+  padding:.6rem .9rem;
+  border-bottom:1px solid var(--border);
+  vertical-align:top;
+}
+tbody tr:last-child td{ border-bottom:none; }
+tbody tr:nth-child(even){ background: color-mix(in srgb, var(--surface-alt) 40%, transparent); }
+td.mono, th.mono{ font-family:"JetBrains Mono",monospace; font-size:.82rem; color:var(--ink-dim); white-space:nowrap; }
+td.note{ color:var(--ink-dim); font-size:.85rem; }
+
+/* ---------- Feature description cards ---------- */
+.feat-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:1rem;
+  margin-top:1rem;
+}
+.feat-card{
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:1.1rem 1.25rem;
+  background:var(--surface);
+}
+.feat-card h4{
+  margin:0 0 .45rem;
+  font-size:1rem;
+  font-family:"Shippori Mincho",serif;
+  font-weight:600;
+}
+.feat-card p{ margin:0; font-size:.87rem; color:var(--ink-dim); }
+.feat-card p + p{ margin-top:.5rem; }
+.feat-card .impl{
+  display:block; margin-top:.6rem;
+  font-family:"JetBrains Mono",monospace; font-size:.72rem;
+  color:var(--ink-faint);
+}
+
+/* ---------- Priority overview (grouped) ---------- */
+.priority-board{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:1rem;
+  margin:1.2rem 0 1.8rem;
+}
+.priority-col{
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface);
+  overflow:hidden;
+}
+.priority-col .col-head{
+  padding:.85rem 1rem;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.priority-col .col-head strong{ font-size:.9rem; }
+.priority-col ul{
+  list-style:none; margin:0; padding:.4rem;
+  display:flex; flex-direction:column; gap:.2rem;
+}
+.priority-col li{
+  padding:.55rem .7rem;
+  border-radius:6px;
+  font-size:.85rem;
+}
+.priority-col li:hover{ background:var(--surface-alt); }
+.priority-col li .t{ font-weight:600; display:block; margin-bottom:.15rem; }
+.priority-col li .n{ color:var(--ink-dim); font-size:.8rem; }
+.priority-col.essential .col-head{ background:var(--pri-essential-soft); }
+.priority-col.important .col-head{ background:var(--pri-important-soft); }
+.priority-col.deferred .col-head{ background:var(--pri-deferred-soft); }
+.priority-col.essential .col-head strong{ color:var(--pri-essential); }
+.priority-col.important .col-head strong{ color:var(--pri-important); }
+.priority-col.deferred .col-head strong{ color:var(--pri-deferred); }
+
+/* ---------- MVP ordered list ---------- */
+.mvp-list{
+  counter-reset:mvp;
+  list-style:none;
+  margin:1.2rem 0; padding:0;
+  display:flex; flex-direction:column; gap:.5rem;
+}
+.mvp-list li{
+  counter-increment:mvp;
+  display:grid;
+  grid-template-columns:2.6rem 1fr;
+  align-items:start;
+  gap:.9rem;
+  padding:.8rem .95rem;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:8px;
+}
+.mvp-list li::before{
+  content: counter(mvp, decimal-leading-zero);
+  font-family:"JetBrains Mono",monospace;
+  font-weight:600;
+  color:var(--accent-ink);
+  font-size:.95rem;
+}
+.mvp-list li span{ font-size:.92rem; }
+
+.deferred-note{
+  margin-top:1.4rem;
+  padding:1rem 1.15rem;
+  border:1px dashed var(--border);
+  border-radius:8px;
+  color:var(--ink-dim);
+  font-size:.87rem;
+}
+.deferred-note strong{ color:var(--ink); }
+
+footer{
+  grid-column:1/-1;
+  padding:2rem clamp(1.25rem,4vw,3rem) 3rem;
+  border-top:1px solid var(--border);
+  color:var(--ink-faint);
+  font-size:.8rem;
+  display:flex; flex-wrap:wrap; gap:.5rem 1.2rem; justify-content:space-between;
+}
+
+@media (max-width: 880px){
+  .shell{ grid-template-columns: 1fr; }
+  nav.toc{
+    position:static;
+    max-height:none;
+    padding:1.2rem clamp(1.25rem,4vw,3rem) 0;
+  }
+  nav.toc ol{ flex-direction:row; flex-wrap:wrap; }
+  .card-grid, .feat-grid, .priority-board{ grid-template-columns:1fr; }
+}
+@media (prefers-reduced-motion:no-preference){
+  a, .priority-col li{ transition: background .12s ease, color .12s ease; }
+}
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <div class="kicker">Sakura Editor &rarr; macOS &middot; 調査資料</div>
+    <h1>サクラエディタ機能棚卸し</h1>
+    <p class="lede">Windows版サクラエディタ 2.4.3 の実装（<code class="mono">Funccode_x.hsrc</code>・<code class="mono">CViewCommander_*.cpp</code>・<code class="mono">types/</code>・<code class="mono">prop/</code> ほか）を読み解いて機能を分類し、Mac版をAppKit＋自前テキストエンジンでネイティブ新規設計する前提でMVPの優先度を整理した。</p>
+    <div class="meta-row">
+      <span>対象 <span class="mono">sakura-2.4.3</span></span>
+      <span>調査日 <span class="mono">2026-09-25</span></span>
+      <span>方針 AppKit + 自前テキストエンジン</span>
+      <span>配置 別プロジェクトとして新規作成予定</span>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <p class="toc-title">Contents</p>
+    <ol>
+      <li><a href="#priority">優先度の定義</a></li>
+      <li><a href="#commands">コマンド機能カテゴリ</a></li>
+      <li><a href="#lang">言語定義とハイライト</a></li>
+      <li><a href="#settings">設定・カスタマイズ</a></li>
+      <li><a href="#search">検索・正規表現機能</a></li>
+      <li><a href="#others">その他の主要機能</a></li>
+      <li><a href="#map">MVP優先度マップ</a></li>
+      <li><a href="#mvp">MVP候補リスト</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section id="priority">
+      <h2><span class="num">00</span>優先度の定義</h2>
+      <p class="section-intro">各機能カテゴリに付与した3段階の優先度。移植困難性（Windows専用API・COM・DLL ABIへの依存度）と、エディタとしての本質的な重要度の両方を勘案して判断している。</p>
+      <div class="priority-legend">
+        <div class="legend-card">
+          <div class="pill essential">必須</div>
+          <p>これがないとテキストエディタとして成立しないコア機能。</p>
+        </div>
+        <div class="legend-card">
+          <div class="pill important">重要</div>
+          <p>サクラエディタらしさの中核。初期リリースで欲しい機能。</p>
+        </div>
+        <div class="legend-card">
+          <div class="pill deferred">後回し可</div>
+          <p>Windows専用技術に強く依存、またはニッチで初期は見送れる機能。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="commands">
+      <h2><span class="num">01</span>コマンド機能カテゴリ</h2>
+      <p class="section-intro"><code class="mono">EFunctionCode</code>（<code class="mono">sakura_core/Funccode_x.hsrc</code>）全定義と <code class="mono">CViewCommander_*.cpp</code> 26ファイルを横断して16グループに分類した。番号帯域は CLAUDE.md 記載どおり実装で確認済み：<code class="mono">20000-21999</code> プラグイン／<code class="mono">30000-32767</code> ユーザー割当可能／<code class="mono">32768-39999</code> 間接機能／<code class="mono">40000-49511</code> マクロ関数。</p>
+
+      <div class="card-grid">
+        <div class="cmd-card">
+          <div class="row1"><h4>ファイル操作系</h4><span class="range">30101–30198</span></div>
+          <p class="desc">新規／開く／上書き保存／名前を付けて保存／閉じる／文字コード指定で開き直し（SJIS, JIS, EUC, Unicode, UTF-8/7, UnicodeBE, CESU-8, Latin1）／すべて保存／印刷・印刷プレビュー／エクスプローラーで開く／コマンドプロンプト起動／全終了。</p>
+          <span class="impl">CViewCommander_File.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>編集操作系</h4><span class="range">30200–30285</span></div>
+          <p class="desc">文字入力・IME／Undo・Redo／文字・単語・行・折返し単位の削除／TAB・SPACEインデント／左右トリム／行ソート／選択行マージ／再変換。</p>
+          <span class="impl">CViewCommander_Edit*.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>カーソル移動系</h4><span class="range">30311–30394</span></div>
+          <p class="desc">上下左右・単語単位・行頭行末・半/1ページ・ファイル先頭末尾・段落移動、画面内カーソル位置調整、移動履歴（戻る/進む）、変更行ジャンプ。</p>
+          <span class="impl">CViewCommander_Cursor.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>選択系</h4><span class="range">30400–30551</span></div>
+          <p class="desc">単語／全選択／行選択／範囲選択に加え、カーソル移動全種に対応する<strong>矩形（ボックス）選択</strong>版（<code class="mono">_BOX</code>系）。</p>
+          <span class="impl">CViewCommander_Select.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>クリップボード系</h4><span class="range">30601–30631</span></div>
+          <p class="desc">カット／コピー／貼り付け／矩形貼り付け／CRLF付与コピー／全行コピー（引用符・行番号・色付きHTML）／ファイルパス・ファイル名コピー。</p>
+          <span class="impl">CViewCommander_Clipboard.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>挿入系</h4><span class="range">30790–30795</span></div>
+          <p class="desc">日付・時刻の挿入、コントロールコード入力、最近使ったファイル／フォルダーの挿入。</p>
+          <span class="impl">CViewCommander_Insert.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>変換系</h4><span class="range">30800–30880</span></div>
+          <p class="desc">大文字小文字、全角半角（英数・カナ・ひらがな相互）、TAB⇔スペース、文字コード変換、Base64・uudecode。</p>
+          <span class="impl">CViewCommander_Convert.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>検索・アウトライン・Grep・差分</h4><span class="range">30901–30990</span></div>
+          <p class="desc">検索・置換・インクリメンタルサーチ（通常/正規表現/Migemo）、Grep、指定行ジャンプ、アウトライン解析、タグジャンプ、ファイル比較、対括弧検索、ブックマーク、ファイルツリー。</p>
+          <span class="impl">CViewCommander_{Search,Grep,Outline,TagJump,Diff,Bookmark}.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>モード切替系</h4><span class="range">31001–31099</span></div>
+          <p class="desc">挿入／上書きモード、文字コードセット指定、改行コード指定（CRLF/LF/CR/NEL/PS/LS）。</p>
+          <span class="impl">CViewCommander_ModeChange.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>表示・設定系</h4><span class="range">31100–32018</span></div>
+          <p class="desc">ツールバー・ステータスバー・タブバー・ミニマップの表示切替、型別／共通設定ダイアログ群、フォント・折返し設定。</p>
+          <span class="impl">CViewCommander_Settings.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>マクロ系</h4><span class="range">31250–31271</span></div>
+          <p class="desc">キーマクロの記録・保存・読込・実行、名前指定実行、外部コマンド実行。</p>
+          <span class="impl">CViewCommander_Macro.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>ウィンドウ・タブ系</h4><span class="range">31310–31390</span></div>
+          <p class="desc">分割（上下/左右）、最大化・最小化、重ねて／並べて表示、ウィンドウグループ化、タブの移動・分離・結合・一括閉じる。</p>
+          <span class="impl">CViewCommander_Window.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>支援・ヘルプ系</h4><span class="range">31430–31455</span></div>
+          <p class="desc">入力補完（Hokan）、キーワードヘルプ自動表示、ヘルプ目次・検索、コマンド一覧、バージョン情報。</p>
+          <span class="impl">CViewCommander_Support.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>カスタムメニュー系</h4><span class="range">31500–31580 / 31600–</span></div>
+          <p class="desc">カスタムメニュー1〜24（ユーザー定義コマンド起動）、右クリックメニュー、登録マクロ起動。</p>
+          <span class="impl">CViewCommander_CustMenu.cpp</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>間接機能</h4><span class="range">32768–32822</span></div>
+          <p class="desc">改行コード指定・引用符設定・マクロ出力・UndoBlock管理など、マクロエンジンやプラグイン実装が内部的に呼ぶAPI相当。</p>
+          <span class="impl">内部API</span>
+        </div>
+        <div class="cmd-card">
+          <div class="row1"><h4>マクロ関数</h4><span class="range">40000–49511（約60種）</span></div>
+          <p class="desc">ファイル名・選択範囲・行文字列の取得、タブ幅/折返し桁の取得設定、各種ダイアログ表示、クリップボード読み書き、Cookie（マクロ変数の永続化）、行列変換。</p>
+          <span class="impl">マクロスクリプトAPI</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="lang">
+      <h2><span class="num">02</span>言語定義とシンタックスハイライト</h2>
+      <p class="section-intro"><code class="mono">sakura_core/types/CType_*.cpp</code> 全20ファイルで標準対応する言語・ファイル種別。</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ファイル</th><th>言語／種別</th><th>拡張子例</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">CType_Basis</td><td>基本（デフォルト）</td><td class="note">—</td></tr>
+            <tr><td class="mono">CType_Cpp</td><td>C / C++</td><td class="note">c, cpp, cxx, cc, h, hpp, hxx, rc</td></tr>
+            <tr><td class="mono">CType_Java</td><td>Java</td><td class="note">java, jav</td></tr>
+            <tr><td class="mono">CType_Python</td><td>Python</td><td class="note">py</td></tr>
+            <tr><td class="mono">CType_Perl</td><td>Perl</td><td class="note">cgi, pl, pm</td></tr>
+            <tr><td class="mono">CType_Vb</td><td>Visual Basic</td><td class="note">bas, frm, cls, vb</td></tr>
+            <tr><td class="mono">CType_Pascal</td><td>Pascal</td><td class="note">dpr, pas</td></tr>
+            <tr><td class="mono">CType_Cobol</td><td>COBOL</td><td class="note">cbl, cpy, cob</td></tr>
+            <tr><td class="mono">CType_Asm</td><td>アセンブラ</td><td class="note">asm</td></tr>
+            <tr><td class="mono">CType_Awk</td><td>AWK</td><td class="note">awk</td></tr>
+            <tr><td class="mono">CType_Sql</td><td>PL/SQL</td><td class="note">sql, plsql</td></tr>
+            <tr><td class="mono">CType_Html</td><td>HTML</td><td class="note">html, htm, shtml</td></tr>
+            <tr><td class="mono">CType_Tex</td><td>TeX</td><td class="note">tex, ltx, sty, bib</td></tr>
+            <tr><td class="mono">CType_Ini</td><td>設定ファイル</td><td class="note">ini, inf, cnf, kwd, col</td></tr>
+            <tr><td class="mono">CType_Dos</td><td>MS-DOSバッチ</td><td class="note">bat</td></tr>
+            <tr><td class="mono">CType_CorbaIdl</td><td>CORBA IDL</td><td class="note">idl</td></tr>
+            <tr><td class="mono">CType_Erlang</td><td>Erlang</td><td class="note">—</td></tr>
+            <tr><td class="mono">CType_Rich</td><td>リッチテキスト</td><td class="note">rtf</td></tr>
+            <tr><td class="mono">CType_Text</td><td>テキスト</td><td class="note">txt, log, 1st, err, ps</td></tr>
+            <tr><td class="mono">CType_Others</td><td>ユーザー定義スロット</td><td class="note">任意設定可</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>ハイライトの仕組み</h3>
+      <p>色分けカテゴリは<code class="mono">COLORIDX_*</code>だけで50種類以上（<code class="mono">EColorIndexType.h</code>）。強調キーワード1〜10（単語ベース）、正規表現キーワード1〜10（<code class="mono">typeprop/CPropTypesRegex.cpp</code>で編集可能）、行／ブロックコメント×2系統、シングル・ダブルクォート文字列、ヒアドキュメント、URL自動認識、対括弧強調、検索文字列ハイライト（5段階）、差分・ブックマーク・ミニマップ表示を持つ。</p>
+      <p>これとは別に<strong>アウトライン解析</strong>（<code class="mono">CDocOutline.h</code>, <code class="mono">outline/CFuncInfoArr.*</code>）が言語ごとに専用パーサーを持つ：C/C++関数、PL/SQL関数、Javaクラス/メソッド、COBOL、アセンブラ、Perlサブルーチン、VBプロシージャ、Pythonのdef/class、Erlang関数、テキストのインデント階層、HTML見出し、TeXセクション、ユーザー定義の正規表現ルールによる汎用アウトライン。</p>
+    </section>
+
+    <section id="settings">
+      <h2><span class="num">03</span>設定・カスタマイズ</h2>
+      <p class="section-intro"><code class="mono">sakura_core/prop/CPropCom*.cpp</code> 19ファイルに対応する共通設定ダイアログのカテゴリ。型別設定（フォント・配色）は別途 <code class="mono">typeprop/</code> が担う。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>クラス</th><th>設定カテゴリ</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">CPropComGeneral</td><td>全般</td></tr>
+            <tr><td class="mono">CPropComWin</td><td>ウィンドウ</td></tr>
+            <tr><td class="mono">CPropComEdit</td><td>編集動作</td></tr>
+            <tr><td class="mono">CPropComFile</td><td>ファイル（開く/保存の挙動）</td></tr>
+            <tr><td class="mono">CPropComBackup</td><td>バックアップ</td></tr>
+            <tr><td class="mono">CPropComFormat</td><td>書式（改行/文字コード既定）</td></tr>
+            <tr><td class="mono">CPropComGrep</td><td>Grep動作</td></tr>
+            <tr><td class="mono">CPropComKeybind</td><td>キー割り当て</td></tr>
+            <tr><td class="mono">CPropComCustmenu</td><td>カスタムメニュー</td></tr>
+            <tr><td class="mono">CPropComToolbar</td><td>ツールバー</td></tr>
+            <tr><td class="mono">CPropComKeyword</td><td>強調キーワード（共通集）</td></tr>
+            <tr><td class="mono">CPropComHelper</td><td>入力支援</td></tr>
+            <tr><td class="mono">CPropComMacro</td><td>マクロ</td></tr>
+            <tr><td class="mono">CPropComFileName</td><td>ファイル名表示</td></tr>
+            <tr><td class="mono">CPropComTab</td><td>タブ</td></tr>
+            <tr><td class="mono">CPropComStatusbar</td><td>ステータスバー</td></tr>
+            <tr><td class="mono">CPropComPlugin</td><td>プラグイン</td></tr>
+            <tr><td class="mono">CPropComMainMenu</td><td>メインメニュー構成</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="search">
+      <h2><span class="num">04</span>検索・正規表現機能</h2>
+      <div class="feat-grid">
+        <div class="feat-card">
+          <h4>通常検索</h4>
+          <p><code class="mono">CSearchStringPattern</code> が独自の高速文字列検索（Sunday Quick法／KMP法をビルドオプションで選択）を実装。大文字小文字区別オプションあり。</p>
+          <span class="impl">agent/CSearchAgent.*</span>
+        </div>
+        <div class="feat-card">
+          <h4>正規表現検索</h4>
+          <p><code class="mono">CBregexp</code> がPerl5互換の <code class="mono">BREGEXP.DLL</code>（Windows専用）を<code class="mono">CDllHandler</code>経由でラップ。Onigmo/bregonigへの一本化で移植性は高い部類。</p>
+          <span class="impl">extmodule/CBregexp.cpp</span>
+        </div>
+        <div class="feat-card">
+          <h4>Migemo検索</h4>
+          <p>ローマ字入力のままインクリメンタルに日本語を検索。C/Migemo DLLをシングルトンでロードする外部DLL依存機能。</p>
+          <span class="impl">extmodule/CMigemo.cpp</span>
+        </div>
+        <div class="feat-card">
+          <h4>Grep（ファイル横断検索）</h4>
+          <p><code class="mono">SGrepOption</code>でサブフォルダー再帰・出力スタイル（Normal/WZ風/結果のみ）・ヒット行/非ヒット行出力・クリップボードからの置換・バックアップ付き置換を制御。</p>
+          <span class="impl">agent/CGrepAgent.*, CGrepEnumFiles/Folders/Keys</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="others">
+      <h2><span class="num">05</span>その他の主要機能</h2>
+      <div class="feat-grid">
+        <div class="feat-card">
+          <h4>マクロ機能（3系統）</h4>
+          <p><strong>WSH</strong>：<code class="mono">ActivScp.h</code>（COM ActiveScript）に全面依存、JScript/VBScript実行。<strong>PPA</strong>：外部<code class="mono">PPA.DLL</code>によるPascal系インタープリタ。<strong>Python</strong>：外部DLLロード。いずれもWindows専用技術が前提。</p>
+          <span class="impl">macro/CWSH*.cpp, CPPA.cpp, CPythonMacroManager.cpp</span>
+        </div>
+        <div class="feat-card">
+          <h4>プラグイン機能</h4>
+          <p>Win32 DLLを独自ABI（<code class="mono">DllPlugHandler</code>関数ポインタ）で直接呼び出す形式。<code class="mono">plugin.def</code>でJack（拡張ポイント）とコマンドを宣言。</p>
+          <span class="impl">plugin/CDllPlugin.cpp, CPluginManager, CJackManager</span>
+        </div>
+        <div class="feat-card">
+          <h4>矩形（ボックス）選択</h4>
+          <p>カーソル移動系コマンド全種に対応する<code class="mono">_BOX</code>版が用意され、Undo/Redoも含め完全サポート。実装自体のWindows依存は薄い。</p>
+          <span class="impl">CViewCommander_Select.cpp</span>
+        </div>
+        <div class="feat-card">
+          <h4>差分比較</h4>
+          <p>外部<code class="mono">diffutils</code>（GNU diffutils, submodule）と連携し2ファイル間の差分を色分け表示、次/前の差分へジャンプ。</p>
+          <span class="impl">docplus/CDiffManager.*, CDlgDiff.*</span>
+        </div>
+        <div class="feat-card">
+          <h4>自動保存／バックアップ／自動再読込</h4>
+          <p><code class="mono">CAutoSaveAgent</code>（タイマーベース自動保存）、<code class="mono">CBackupAgent</code>（保存前フック）、<code class="mono">CAutoReloadAgent</code>（外部更新検知：問い合わせ/通知/無視/自動ロード）。<code class="mono">CDocListener</code>イベントフックに乗る設計でWindows依存は薄い。</p>
+          <span class="impl">sakura_core/agent/</span>
+        </div>
+        <div class="feat-card">
+          <h4>タグジャンプ</h4>
+          <p>外部Ctags（submodule）連携でタグファイル作成・ジャンプ・ジャンプバック。開発者向けのニッチ機能でLSP的な代替も検討可。</p>
+          <span class="impl">CViewCommander_TagJump.cpp</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="map">
+      <h2><span class="num">06</span>Mac版MVP優先度マップ</h2>
+      <p class="section-intro">カテゴリ横断で3段階に振り分けた一覧。境界的なものは「重要」列の末尾に注記付きで配置している。</p>
+
+      <div class="priority-board">
+        <div class="priority-col essential">
+          <div class="col-head"><strong>必須</strong><span class="pill essential">5</span></div>
+          <ul>
+            <li><span class="t">ファイル操作</span><span class="n">新規/開く/保存/文字コード・改行コード指定</span></li>
+            <li><span class="t">編集操作</span><span class="n">入力/Undo・Redo/削除/インデント/トリム/ソート</span></li>
+            <li><span class="t">カーソル移動・通常選択</span></li>
+            <li><span class="t">クリップボード（基本形）</span><span class="n">HTML色付きコピー等は重要止まり</span></li>
+            <li><span class="t">モード切替</span><span class="n">挿入/上書き・文字コード・改行コード</span></li>
+          </ul>
+        </div>
+        <div class="priority-col important">
+          <div class="col-head"><strong>重要</strong><span class="pill important">13</span></div>
+          <ul>
+            <li><span class="t">シンタックスハイライト基盤</span><span class="n">主要言語から着手</span></li>
+            <li><span class="t">検索・置換（通常＋正規表現）</span></li>
+            <li><span class="t">矩形選択</span></li>
+            <li><span class="t">対括弧強調・主要言語のアウトライン解析</span></li>
+            <li><span class="t">ブックマーク</span></li>
+            <li><span class="t">Grep</span></li>
+            <li><span class="t">タブ・ウィンドウ分割</span><span class="n">2プロセスモデル自体は再設計前提</span></li>
+            <li><span class="t">設定・カスタマイズ</span><span class="n">フォント/配色/キーバインド</span></li>
+            <li><span class="t">自動保存/バックアップ/自動再読込</span></li>
+            <li><span class="t">通常インクリメンタルサーチ</span></li>
+            <li><span class="t">キーマクロ（操作記録・再生）</span><span class="n">OS非依存、軽量版から</span></li>
+            <li><span class="t">差分比較</span><span class="n">境界：後回し可とも判断できる</span></li>
+            <li><span class="t">カスタムメニュー</span><span class="n">境界：優先度は中程度</span></li>
+          </ul>
+        </div>
+        <div class="priority-col deferred">
+          <div class="col-head"><strong>後回し可</strong><span class="pill deferred">8</span></div>
+          <ul>
+            <li><span class="t">タグジャンプ（Ctags連携）</span></li>
+            <li><span class="t">Migemo検索</span></li>
+            <li><span class="t">正規表現/Migemo版インクリメンタルサーチ</span></li>
+            <li><span class="t">マクロ機能</span><span class="n">WSH/PPA/Python</span></li>
+            <li><span class="t">プラグイン機能</span><span class="n">DLL/WSH</span></li>
+            <li><span class="t">印刷・印刷プレビュー</span></li>
+            <li><span class="t">ニッチ言語定義</span><span class="n">COBOL/アセンブラ/PL-SQL/CORBA IDL等</span></li>
+            <li><span class="t">外部コマンド実行</span><span class="n">SQL*Plus連携等</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="mvp">
+      <h2><span class="num">07</span>MVP候補リスト（推奨実装順）</h2>
+      <p class="section-intro">土台となる描画エンジン・ドキュメントモデルの実現性検証を兼ねて、この順で着手するのが妥当と判断した候補。</p>
+      <ol class="mvp-list">
+        <li><span>ファイルの新規作成／開く／保存／名前を付けて保存、文字コード・改行コード（CRLF/LF/CR）の判定と指定</span></li>
+        <li><span>基本編集操作（入力・削除・Undo/Redo・コピー・カット・ペースト）</span></li>
+        <li><span>カーソル移動（文字・単語・行・段落・ページ単位）と範囲選択</span></li>
+        <li><span>矩形（ボックス）選択と矩形貼り付け</span></li>
+        <li><span>検索・置換（通常検索＋正規表現検索、インクリメンタルサーチ）</span></li>
+        <li><span>主要言語（C/C++, Python, HTML, JSON/設定ファイル系など）のシンタックスハイライト基盤（キーワード強調、コメント/文字列判定）</span></li>
+        <li><span>主要言語のアウトライン解析（関数/クラス一覧パネル）</span></li>
+        <li><span>対括弧の強調表示</span></li>
+        <li><span>ブックマーク機能（設定／次へ／前へ／一覧）</span></li>
+        <li><span>Grep（複数ファイル横断検索・置換）</span></li>
+        <li><span>タブによる複数ファイル管理と簡易ウィンドウ分割</span></li>
+        <li><span>型別（言語別）設定とアプリ共通設定（フォント、配色、タブ幅、折返し）のカスタマイズ</span></li>
+        <li><span>自動保存・自動バックアップ</span></li>
+        <li><span>キーバインドのカスタマイズ</span></li>
+        <li><span>シンプルな操作記録・再生（スクリプトエンジンなしの軽量キーマクロ相当）</span></li>
+      </ol>
+
+      <div class="deferred-note">
+        <strong>MVP後に回す判断とした機能：</strong> マクロ（WSH/PPA/Python）、DLLプラグイン、タグジャンプ、Migemo検索、印刷、ニッチ言語定義、外部コマンド連携。いずれもWindows専用技術への依存度が高いか、利用者が限定的なため段階的拡張フェーズが妥当。
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <span>調査対象：<code class="mono">/Users/mukaemasaki/Downloads/sakura-2.4.3</code></span>
+    <span>Sakura Editor is licensed under the zlib License.</span>
+  </footer>
+
+</div>

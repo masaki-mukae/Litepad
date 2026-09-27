@@ -1,0 +1,9 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. SYNTAXTEST.
+      * これは固定7桁目コメントです
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-NAME PIC X(20) VALUE 'SakuraMac'.
+       PROCEDURE DIVISION.
+           DISPLAY WS-NAME.
+           STOP RUN.
