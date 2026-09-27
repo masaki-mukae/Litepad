@@ -31,11 +31,27 @@ extension TextCanvasView {
     override func mouseDragged(with event: NSEvent) {
         cursor = position(for: convert(event.locationInWindow, from: nil))
         autoscroll(with: event)
-        needsDisplay = true
+        afterCursorMove()
     }
 
     override func mouseUp(with event: NSEvent) {
         if selectionAnchor == cursor { clearSelection(); needsDisplay = true }
+    }
+
+    /// ⌘（コマンドキー）を押しながらのスクロールで表示倍率を変更する
+    /// （サクラエディタのCtrl+ホイールに相当、Macの慣習に合わせて⌘に読み替え）。
+    /// ⌘を押していない通常のスクロールはスーパークラスに委ね、NSScrollViewへ届かせる。
+    override func scrollWheel(with event: NSEvent) {
+        guard event.modifierFlags.contains(.command) else {
+            super.scrollWheel(with: event)
+            return
+        }
+        adjustZoom(by: 1 + event.scrollingDeltaY * 0.02)
+    }
+
+    /// トラックパッドのピンチ（マグニファイ）ジェスチャーで表示倍率を変更する。
+    override func magnify(with event: NSEvent) {
+        adjustZoom(by: 1 + event.magnification)
     }
 
     override func keyDown(with event: NSEvent) {

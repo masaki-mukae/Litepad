@@ -60,11 +60,16 @@ final class AppSettings {
         }
     }
 
-    var font: NSFont {
+    var font: NSFont { font(atZoom: 1) }
+
+    /// 環境設定のフォントサイズを`zoom`倍したフォントを返す（`TextCanvasView`の
+    /// 表示倍率機能用）。環境設定のフォントサイズ自体は変更しない。
+    func font(atZoom zoom: CGFloat) -> NSFont {
+        let size = CGFloat(fontSize) * zoom
         if fontName.isEmpty {
-            return NSFont.monospacedSystemFont(ofSize: CGFloat(fontSize), weight: .regular)
+            return NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
         }
-        return NSFont(name: fontName, size: CGFloat(fontSize)) ?? NSFont.monospacedSystemFont(ofSize: CGFloat(fontSize), weight: .regular)
+        return NSFont(name: fontName, size: size) ?? NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
     }
 
     func resetToDefaults() {

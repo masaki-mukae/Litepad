@@ -12,6 +12,12 @@ final class LitepadDocument: NSDocument {
     private var autosaveTimer: Timer?
     private static let autosaveInterval: TimeInterval = 60
 
+    /// 保存パネルの文字コードポップアップで選択中の値。パネルが表示されたとき
+    /// （初回保存・名前を付けて保存）にのみ設定され、実際に保存が実行された時点で
+    /// 適用してクリアする。通常の上書き保存（パネルを出さない）では`nil`のままなので、
+    /// 現在のエンコーディングがそのまま使われる。
+    private var pendingSaveEncoding: TextEncodingKind?
+
     override class var autosavesInPlace: Bool { false }
 
     override init() {
@@ -31,9 +37,64 @@ final class LitepadDocument: NSDocument {
     }
 
     override func write(to url: URL, ofType typeName: String) throws {
+        if let pendingSaveEncoding {
+            buffer.reassignEncoding(pendingSaveEncoding)
+            self.pendingSaveEncoding = nil
+            for controller in windowControllers {
+                (controller as? DocumentWindowController)?.refreshEncodingDependentUI()
+            }
+        }
         try buffer.write(to: url)
         // 実ファイルへの保存に成功したので、クラッシュ復元用のバックアップはもう不要。
         AutoSaveManager.removeBackup(for: autosaveID)
+    }
+
+    /// 保存パネル（初回保存・名前を付けて保存）に文字コードの選択欄を追加する
+    /// （サクラエディタの「名前を付けて保存」ダイアログの文字コード選択に相当）。
+    override func prepareSavePanel(_ savePanel: NSSavePanel) -> Bool {
+        pendingSaveEncoding = buffer.encoding
+
+        let label = NSTextField(labelWithString: "文字コード:")
+        let popUp = NSPopUpButton(frame: .zero, pullsDown: false)
+        for kind in TextEncodingKind.allCases {
+            popUp.addItem(withTitle: kind.displayName)
+            popUp.lastItem?.representedObject = kind
+        }
+        if let index = TextEncodingKind.allCases.firstIndex(of: buffer.encoding) {
+            popUp.selectItem(at: index)
+        }
+        popUp.target = self
+        popUp.action = #selector(saveEncodingPopUpChanged(_:))
+
+        let stack = NSStackView(views: [label, popUp])
+        stack.orientation = .horizontal
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 40))
+        accessory.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: accessory.leadingAnchor, constant: 16),
+            stack.centerYAnchor.constraint(equalTo: accessory.centerYAnchor),
+        ])
+        savePanel.accessoryView = accessory
+        return true
+    }
+
+    @objc private func saveEncodingPopUpChanged(_ sender: NSPopUpButton) {
+        pendingSaveEncoding = sender.selectedItem?.representedObject as? TextEncodingKind
+    }
+
+    /// 文字コードを変換する（内容は変わらず、次回保存時のバイト列表現だけが変わる）。
+    /// 選択範囲のバイト数表示はエンコーディングに依存するため、変換直後に
+    /// ステータスバーへ反映されるよう開いている全ウィンドウへ再計算を促す。
+    func convertEncoding(to newEncoding: TextEncodingKind) {
+        guard buffer.encoding != newEncoding else { return }
+        buffer.reassignEncoding(newEncoding)
+        updateChangeCount(.changeDone)
+        for controller in windowControllers {
+            (controller as? DocumentWindowController)?.refreshEncodingDependentUI()
+        }
     }
 
     override func close() {

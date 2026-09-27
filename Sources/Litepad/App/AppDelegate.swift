@@ -2,7 +2,7 @@ import AppKit
 
 /// メニュー構築のみを担当する。ファイルの新規作成・開く・保存・保存確認・Undo Managerの提供は
 /// すべてNSDocument/NSDocumentControllerの標準機構に委ねる。
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = buildMainMenu()
     }
@@ -75,6 +75,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let saveAsItem = fileMenu.addItem(withTitle: "名前を付けて保存…", action: #selector(saveCurrentDocumentAs(_:)), keyEquivalent: "s")
         saveAsItem.keyEquivalentModifierMask = [.command, .shift]
         saveAsItem.target = self
+        fileMenu.addItem(.separator())
+        let encodingItem = NSMenuItem(title: "文字コード", action: nil, keyEquivalent: "")
+        let encodingMenu = NSMenu(title: "文字コード")
+        encodingMenu.delegate = self
+        for kind in TextEncodingKind.allCases {
+            let item = encodingMenu.addItem(withTitle: kind.displayName, action: #selector(convertEncoding(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = kind
+        }
+        encodingItem.submenu = encodingMenu
+        fileMenu.addItem(encodingItem)
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "閉じる", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         fileMenuItem.submenu = fileMenu
@@ -201,5 +212,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let document = NSDocumentController.shared.currentDocument as? LitepadDocument else { return }
         let controller = document.windowControllers.compactMap { $0 as? DocumentWindowController }.first
         controller?.showFindPanel()
+    }
+
+    @objc private func convertEncoding(_ sender: NSMenuItem) {
+        guard let kind = sender.representedObject as? TextEncodingKind,
+              let document = NSDocumentController.shared.currentDocument as? LitepadDocument else { return }
+        document.convertEncoding(to: kind)
+    }
+
+    /// 「文字コード」サブメニューを開くたびに、現在のドキュメントのエンコーディングへ
+    /// チェックマークを付け直す。
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu.title == "文字コード" else { return }
+        let current = (NSDocumentController.shared.currentDocument as? LitepadDocument)?.buffer.encoding
+        for item in menu.items {
+            item.state = (item.representedObject as? TextEncodingKind) == current ? .on : .off
+        }
     }
 }

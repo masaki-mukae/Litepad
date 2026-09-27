@@ -52,6 +52,21 @@ final class TextCanvasView: NSView, NSTextInputClient {
     /// Undo登録・未保存インジケータ更新のために弱参照で持つ。
     weak var document: LitepadDocument?
 
+    /// 選択範囲の文字数/バイト数表示（ステータスバー用テキスト）が変わるたびに呼ばれる。
+    var onSelectionStatusChanged: ((String) -> Void)?
+
+    /// ウィンドウ下部に表示する、現在の選択範囲についての文字数/バイト数テキスト。
+    /// 選択が無い場合は空文字列（サクラエディタの選択情報表示に相当）。
+    var selectionStatusText: String {
+        SelectionStatusFormatter.text(
+            buffer: buffer,
+            selection: normalizedSelection,
+            rectSelection: normalizedRectSelection.map {
+                (topLine: $0.topLine, bottomLine: $0.bottomLine, leftColumn: $0.leftColumn, rightColumn: $0.rightColumn)
+            }
+        )
+    }
+
     /// ファイル拡張子から判定した言語のシンタックスハイライト定義（対応言語でなければnil）。
     var currentLanguage: LanguageDefinition? {
         guard let ext = buffer.fileURL?.pathExtension, !ext.isEmpty else { return nil }
@@ -62,6 +77,37 @@ final class TextCanvasView: NSView, NSTextInputClient {
 
     private var caretTimer: Timer?
     var isCaretVisible = true
+
+    /// 表示倍率（サクラエディタの「文字表示倍率」相当）。環境設定のフォントサイズ自体は
+    /// 変えず、このウィンドウの描画だけを拡大縮小する。⌘+スクロール、またはトラック
+    /// パッドのピンチジェスチャーで変更する（`TextCanvasView+Input.swift`参照）。
+    /// ウィンドウ単位の一時的な状態で、環境設定には保存しない。
+    private(set) var zoomScale: CGFloat = 1.0 {
+        didSet {
+            applyFontMetrics()
+            maxLineWidth = 400
+            updateFrameSize()
+            needsDisplay = true
+            onZoomChanged?(zoomPercentText)
+        }
+    }
+    private let minZoomScale: CGFloat = 0.25
+    private let maxZoomScale: CGFloat = 4.0
+
+    /// 表示倍率が変わるたびに呼ばれる（ステータスバー右下の表示更新用）。
+    var onZoomChanged: ((String) -> Void)?
+
+    /// ステータスバーに表示する表示倍率のテキスト（例: "100%"）。
+    var zoomPercentText: String {
+        "\(Int((zoomScale * 100).rounded()))%"
+    }
+
+    /// `factor`倍（例: 1.1なら10%拡大）だけ表示倍率を変更する。範囲外にはクランプする。
+    func adjustZoom(by factor: CGFloat) {
+        let clamped = min(max(zoomScale * factor, minZoomScale), maxZoomScale)
+        guard clamped != zoomScale else { return }
+        zoomScale = clamped
+    }
 
     init(buffer: DocumentBuffer) {
         self.buffer = buffer
@@ -86,9 +132,10 @@ final class TextCanvasView: NSView, NSTextInputClient {
         NotificationCenter.default.removeObserver(self)
     }
 
-    /// フォント・タブ幅から行の高さやタブ間隔を再計算する（初期化時・環境設定変更時に呼ぶ）。
+    /// フォント・タブ幅から行の高さやタブ間隔を再計算する（初期化時・環境設定変更時・
+    /// 表示倍率変更時に呼ぶ）。
     private func applyFontMetrics() {
-        font = AppSettings.shared.font
+        font = AppSettings.shared.font(atZoom: zoomScale)
         lineHeight = ceil(font.ascender - font.descender + font.leading) + 6
         baselineOffset = ceil(font.ascender)
 
@@ -320,6 +367,7 @@ final class TextCanvasView: NSView, NSTextInputClient {
         needsDisplay = true
         isCaretVisible = true
         scrollToVisible(caretRect().insetBy(dx: -40, dy: -40))
+        onSelectionStatusChanged?(selectionStatusText)
     }
 
     /// ドキュメント内容が変わる編集の後処理（未保存インジケータも更新する）。

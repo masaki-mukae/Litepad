@@ -1,7 +1,7 @@
 import Foundation
 
 /// 保存/読み込み時に保持する文字コード種別。
-enum TextEncodingKind: Equatable {
+enum TextEncodingKind: Equatable, CaseIterable {
     case utf8
     case utf8BOM
     case shiftJIS

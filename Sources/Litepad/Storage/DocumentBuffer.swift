@@ -39,6 +39,11 @@ final class DocumentBuffer {
         fileURL = url
     }
 
+    /// 文字コードを変換する（内容は変わらず、次回保存時のバイト列表現だけが変わる）。
+    func reassignEncoding(_ newEncoding: TextEncodingKind) {
+        store.reassignEncoding(newEncoding)
+    }
+
     /// 保存用: 一時ファイルへ書き出してから、最後にアトミックに差し替える。実際の書き出し
     /// ロジック（未編集の連続区間をまとめてコピーする最適化を含む）は`LineStore`に委ねる。
     /// ユーザーが明示的に指定した保存先を`fileURL`として記録する。

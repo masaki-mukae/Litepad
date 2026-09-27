@@ -106,6 +106,23 @@ final class LineStore {
 
     var count: Int { totalCount }
 
+    /// 文字コードを変換する。テキストの内容そのものは変わらず、以後の保存で使うバイト列
+    /// 表現だけが変わる。未実体化行（元ファイルのバイト範囲を指しているだけの行）は、
+    /// 切り替える前に「現在の」エンコーディングで一度デコードして実体化させてから
+    /// エンコーディングを差し替える（先に切り替えてしまうと、元のバイト列を新しい
+    /// エンコーディングとして誤って解釈してしまい、文字化けする）。
+    /// 巨大ファイルでは全行がメモリ上のStringになる（mmapの遅延デコードの恩恵を失う）が、
+    /// 文字コード変換自体がファイル全体のバイト列を書き換える操作である以上、避けられない。
+    func reassignEncoding(_ newEncoding: TextEncodingKind) {
+        guard newEncoding != encoding else { return }
+        for block in blocks {
+            for li in 0..<block.count where block.materialized[li] == nil {
+                block.materialized[li] = TextFileCodec.decodeLine(originalBytes(block.positions[li]), encoding: encoding)
+            }
+        }
+        encoding = newEncoding
+    }
+
     func line(at index: Int) -> String {
         guard index >= 0, index < totalCount else { return "" }
         let (bi, li) = locate(index)

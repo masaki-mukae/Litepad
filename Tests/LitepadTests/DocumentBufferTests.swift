@@ -92,6 +92,48 @@ final class DocumentBufferTests: XCTestCase {
         XCTAssertEqual(buf.line(at: 1), "二行目")
     }
 
+    // MARK: - 文字コード変換
+
+    /// 一度も読んでいない（＝未実体化の）行を含むファイルをShift_JISからUTF-8へ変換した場合、
+    /// 元のバイト列を「変換前の」エンコーディングで正しくデコードしてから切り替える必要がある。
+    /// 先に切り替えてしまうと、Shift_JISの生バイト列をUTF-8として誤って解釈し文字化けする。
+    func testConvertEncodingOnUnmaterializedLinesPreservesContent() throws {
+        let url = tempDir.appendingPathComponent("sjis.txt")
+        let data = "日本語テスト\n二行目\n三行目".data(using: TextFileCodec.shiftJISEncoding)!
+        try data.write(to: url)
+
+        let buf = try DocumentBuffer(contentsOf: url)
+        XCTAssertEqual(buf.encoding, .shiftJIS)
+        // まだ1行も`line(at:)`していない＝未実体化のまま変換する。
+
+        buf.reassignEncoding(.utf8)
+        XCTAssertEqual(buf.encoding, .utf8)
+        XCTAssertEqual(buf.line(at: 0), "日本語テスト", "変換後も内容は変わらない")
+        XCTAssertEqual(buf.line(at: 1), "二行目")
+        XCTAssertEqual(buf.line(at: 2), "三行目")
+
+        try buf.write(to: url)
+        let saved = try Data(contentsOf: url)
+        XCTAssertEqual(String(data: saved, encoding: .utf8), "日本語テスト\n二行目\n三行目", "保存後のバイト列はUTF-8になっている")
+    }
+
+    func testConvertEncodingToUTF8BOMAddsBOMOnSave() throws {
+        let buf = DocumentBuffer(text: "hello")
+        buf.reassignEncoding(.utf8BOM)
+        let url = tempDir.appendingPathComponent("bom-out.txt")
+        try buf.write(to: url)
+        let raw = try Data(contentsOf: url)
+        XCTAssertEqual(Array(raw.prefix(3)), [0xEF, 0xBB, 0xBF])
+    }
+
+    func testConvertEncodingToSameEncodingIsNoOp() throws {
+        let url = try write("hello", encoding: .utf8)
+        let buf = try DocumentBuffer(contentsOf: url)
+        buf.reassignEncoding(.utf8)
+        XCTAssertEqual(buf.encoding, .utf8)
+        XCTAssertEqual(buf.line(at: 0), "hello")
+    }
+
     // MARK: - 基本編集操作
 
     func testInsertAndDeleteBackwardMergesLines() {
