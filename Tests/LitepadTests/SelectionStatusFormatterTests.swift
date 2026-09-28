@@ -2,6 +2,17 @@ import XCTest
 @testable import Litepad
 
 final class SelectionStatusFormatterTests: XCTestCase {
+    private var tempDir: URL!
+
+    override func setUpWithError() throws {
+        tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: tempDir)
+    }
+
     func testNoSelectionReturnsEmptyString() {
         let buffer = DocumentBuffer(text: "hello")
         let text = SelectionStatusFormatter.text(
@@ -65,6 +76,36 @@ final class SelectionStatusFormatterTests: XCTestCase {
             rectSelection: nil
         )
         XCTAssertEqual(text, "\(lineCount)行選択中")
+    }
+
+    /// 上限（200万行）ぎりぎりまで、mmap経由の未実体化行に対して計算しても高速であること
+    /// （`DocumentBuffer.peekLine`/`lineByteLength`がデコードを避けているかの回帰テスト）。
+    /// `DocumentBuffer(text:)`（インメモリ）ではなく`DocumentBuffer(contentsOf:)`（mmap＋遅延
+    /// デコード）で実ファイルから読み込むのが重要: 前者は生成時に全行を実体化してしまうため、
+    /// この最適化が効いているかを検証できない。
+    func testExactCountNearRaisedCapStaysFastOnUnmaterializedLines() throws {
+        let n = 1_900_000
+        var content = ""
+        content.reserveCapacity(n * 12)
+        for i in 0..<n { content += "line \(i) サンプル\n" }
+        let url = tempDir.appendingPathComponent("huge.txt")
+        try content.write(to: url, atomically: true, encoding: .utf8)
+
+        let buffer = try DocumentBuffer(contentsOf: url)
+        XCTAssertLessThan(n, SelectionStatusFormatter.maxLinesForExactCount, "この検証には上限未満の行数が必要")
+
+        let start = Date()
+        let text = SelectionStatusFormatter.text(
+            buffer: buffer,
+            selection: (CursorPosition(line: 0, column: 0), CursorPosition(line: n - 1, column: 0)),
+            rectSelection: nil
+        )
+        let elapsed = Date().timeIntervalSince(start)
+
+        XCTAssertTrue(text.contains("文字/") && text.contains("バイト選択中"), "上限未満なので実際の文字数/バイト数が出るはず: \(text)")
+        // デコードを伴う旧実装なら190万行の全文字列化で数秒かかるはず。
+        // デコード不要のバイト長読み取り+デコードのみの文字数カウントなら数百ms程度で終わる。
+        XCTAssertLessThan(elapsed, 3.0, "選択範囲のバイト数/文字数計算が遅すぎる(所要時間: \(elapsed)秒)")
     }
 
     func testRectSelectionFormat() {

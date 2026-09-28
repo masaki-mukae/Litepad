@@ -79,6 +79,18 @@ final class DocumentBuffer {
         store.line(at: index)
     }
 
+    /// 行のバイト長を、デコード（文字列化）せずに返す。選択範囲のバイト数表示など、
+    /// 巨大な行数を走査する処理を高速化するための専用アクセサ。
+    func lineByteLength(at index: Int) -> Int {
+        store.lineByteLength(at: index)
+    }
+
+    /// 行を`String`として取得するが、`line(at:)`と異なり実体化キャッシュには残さない。
+    /// 選択範囲プレビューのように一時的に読むだけの用途向け。
+    func peekLine(at index: Int) -> String {
+        store.peekLine(at: index)
+    }
+
     @discardableResult
     func insert(_ character: Character, at position: CursorPosition) -> CursorPosition {
         var chars = Array(store.line(at: position.line))

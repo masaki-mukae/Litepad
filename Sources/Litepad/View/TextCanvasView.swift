@@ -129,6 +129,7 @@ final class TextCanvasView: NSView, NSTextInputClient {
 
     deinit {
         caretTimer?.invalidate()
+        selectionStatusWorkItem?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -362,12 +363,30 @@ final class TextCanvasView: NSView, NSTextInputClient {
 
     // MARK: - Post-edit hooks
 
+    private var selectionStatusWorkItem: DispatchWorkItem?
+
     /// カーソル移動・選択範囲変更のみ（ドキュメント内容は変わらない）の後処理。
     func afterCursorMove() {
         needsDisplay = true
         isCaretVisible = true
         scrollToVisible(caretRect().insetBy(dx: -40, dy: -40))
-        onSelectionStatusChanged?(selectionStatusText)
+        scheduleSelectionStatusUpdate()
+    }
+
+    /// 選択範囲のステータス文字列（文字数/バイト数）の再計算をデバウンスする。
+    /// マウスドラッグ中は`afterCursorMove()`がドラッグイベントのたびに（1秒間に何十回も）
+    /// 呼ばれるため、巨大な選択範囲での計算（数百ms〜数秒かかり得る）を都度そのまま
+    /// 実行すると、ドラッグ中の操作感が完全に固まってしまう。直近の呼び出しから
+    /// 一定時間（0.1秒）操作が無かった場合にのみ、実際に計算して表示を更新する。
+    private func scheduleSelectionStatusUpdate() {
+        selectionStatusWorkItem?.cancel()
+        guard onSelectionStatusChanged != nil else { return }
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.onSelectionStatusChanged?(self.selectionStatusText)
+        }
+        selectionStatusWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
     }
 
     /// ドキュメント内容が変わる編集の後処理（未保存インジケータも更新する）。

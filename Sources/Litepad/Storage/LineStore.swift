@@ -133,6 +133,32 @@ final class LineStore {
         return decoded
     }
 
+    /// 行のバイト長を返す。未実体化行（元ファイルのバイト範囲を指しているだけの行）は
+    /// デコードせず、保存済みの長さをそのまま返す。選択範囲のバイト数表示のように、
+    /// 巨大ファイルの広い範囲を走査してもデコードのコストがかからないようにするための
+    /// 専用アクセサ（`line(at:)`は文字列化のためデコードが必須で、この用途には重すぎる）。
+    func lineByteLength(at index: Int) -> Int {
+        guard index >= 0, index < totalCount else { return 0 }
+        let (bi, li) = locate(index)
+        let block = blocks[bi]
+        if let cached = block.materialized[li] {
+            return TextFileCodec.encodeLineContent(cached, as: encoding).count
+        }
+        let pos = block.positions[li]
+        return pos.length == Self.sentinelLength ? 0 : Int(pos.length)
+    }
+
+    /// 行を`String`として取得するが、`line(at:)`と異なり実体化キャッシュには保存しない。
+    /// 選択範囲プレビューのように、巨大範囲を一度読むだけの用途でファイル全体が
+    /// 恒久的にメモリへ展開されてしまう（mmapの遅延読み込みの恩恵を失う）のを避ける。
+    func peekLine(at index: Int) -> String {
+        guard index >= 0, index < totalCount else { return "" }
+        let (bi, li) = locate(index)
+        let block = blocks[bi]
+        if let cached = block.materialized[li] { return cached }
+        return TextFileCodec.decodeLine(originalBytes(block.positions[li]), encoding: encoding)
+    }
+
     func setLine(_ index: Int, to text: String) {
         guard index >= 0, index < totalCount else { return }
         let (bi, li) = locate(index)
