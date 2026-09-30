@@ -26,9 +26,22 @@ extension TextCanvasView {
             anchorPosition = cursor
         }
 
+        // 幅ゼロのマッチ(`^`単体など)を選択中に「次を検索」すると、選択終了位置が
+        // マッチ開始位置と同じになるため、`>=`のままだと同じマッチを永久に選び直してしまう。
+        // 現在の選択がちょうどいずれかのマッチと一致する場合は、そのマッチを候補から除外する。
+        let currentMatch = normalizedSelection.flatMap { selection in
+            matches.first {
+                $0.line == selection.start.line
+                    && $0.startColumn == selection.start.column
+                    && $0.endColumn == selection.end.column
+            }
+        }
+        let forwardCandidates = currentMatch.map { current in matches.filter { $0 != current } } ?? matches
+        let searchPool = forwardCandidates.isEmpty ? matches : forwardCandidates
+
         let match: SearchMatch
         if forward {
-            match = matches.first(where: { CursorPosition(line: $0.line, column: $0.startColumn) >= anchorPosition }) ?? matches[0]
+            match = searchPool.first(where: { CursorPosition(line: $0.line, column: $0.startColumn) >= anchorPosition }) ?? searchPool[0]
         } else {
             match = matches.last(where: { CursorPosition(line: $0.line, column: $0.startColumn) < anchorPosition }) ?? matches[matches.count - 1]
         }

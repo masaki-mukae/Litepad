@@ -73,11 +73,10 @@ enum GrepEngine {
             let lines = normalized.components(separatedBy: "\n")
 
             for (index, line) in lines.enumerated() {
-                guard !line.isEmpty else { continue }
                 if let regex {
                     let ns = line as NSString
                     for match in regex.matches(in: line, range: NSRange(location: 0, length: ns.length)) {
-                        guard match.range.length > 0, let range = Range(match.range, in: line) else { continue }
+                        guard let range = Range(match.range, in: line) else { continue }
                         results.append(GrepMatch(
                             fileURL: file,
                             lineNumber: index + 1,
@@ -87,6 +86,7 @@ enum GrepEngine {
                         ))
                     }
                 } else {
+                    guard !line.isEmpty else { continue }
                     let haystack = caseSensitive ? line : line.lowercased()
                     let needle = caseSensitive ? query : query.lowercased()
                     var searchStart = haystack.startIndex

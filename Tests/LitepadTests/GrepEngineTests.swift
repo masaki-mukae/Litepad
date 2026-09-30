@@ -70,4 +70,19 @@ final class GrepEngineTests: XCTestCase {
         )
         XCTAssertEqual(matches.count, 1)
     }
+
+    func testSearchRegexCaretAndDollarMatchLineBoundaries() throws {
+        try "foo\nbar".write(to: tempDir.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
+
+        let caretMatches = try GrepEngine.search(
+            folder: tempDir, patterns: ["*.txt"], recursive: false, query: "^", useRegex: true, caseSensitive: true
+        )
+        XCTAssertEqual(caretMatches.count, 2)
+        XCTAssertEqual(caretMatches.map(\.startColumn), [0, 0])
+
+        let dollarMatches = try GrepEngine.search(
+            folder: tempDir, patterns: ["*.txt"], recursive: false, query: "$", useRegex: true, caseSensitive: true
+        )
+        XCTAssertEqual(dollarMatches.map(\.startColumn), [3, 3])
+    }
 }

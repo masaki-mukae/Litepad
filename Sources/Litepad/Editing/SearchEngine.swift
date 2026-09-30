@@ -27,12 +27,13 @@ enum TextSearcher {
         var matches: [SearchMatch] = []
         for lineIdx in 0..<buffer.lineCount {
             let text = buffer.line(at: lineIdx)
-            guard !text.isEmpty else { continue }
 
             if let regex {
+                // `^`/`$`単体のような幅ゼロのマッチも、行頭・行末への挿入(置換)に使える
+                // 正当な結果として扱う。空行も対象に含める(`^$`で空行を検出できるようにするため)。
                 let ns = text as NSString
                 for result in regex.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
-                    guard result.range.length > 0, let range = Range(result.range, in: text) else { continue }
+                    guard let range = Range(result.range, in: text) else { continue }
                     matches.append(SearchMatch(
                         line: lineIdx,
                         startColumn: text.distance(from: text.startIndex, to: range.lowerBound),
@@ -40,6 +41,7 @@ enum TextSearcher {
                     ))
                 }
             } else {
+                guard !text.isEmpty else { continue }
                 let haystack = caseSensitive ? text : text.lowercased()
                 let needle = caseSensitive ? query : query.lowercased()
                 var searchStart = haystack.startIndex

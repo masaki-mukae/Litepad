@@ -42,4 +42,39 @@ final class SearchEngineTests: XCTestCase {
             try TextSearcher.allMatches(in: buffer, query: "(unclosed", useRegex: true, caseSensitive: true)
         )
     }
+
+    func testCaretMatchesStartOfEveryLine() throws {
+        let buffer = DocumentBuffer(text: "foo\nbar\nbaz")
+        let matches = try TextSearcher.allMatches(in: buffer, query: "^", useRegex: true, caseSensitive: true)
+        XCTAssertEqual(matches, [
+            SearchMatch(line: 0, startColumn: 0, endColumn: 0),
+            SearchMatch(line: 1, startColumn: 0, endColumn: 0),
+            SearchMatch(line: 2, startColumn: 0, endColumn: 0),
+        ])
+    }
+
+    func testDollarMatchesEndOfEveryLine() throws {
+        let buffer = DocumentBuffer(text: "foo\nbar\nbaz")
+        let matches = try TextSearcher.allMatches(in: buffer, query: "$", useRegex: true, caseSensitive: true)
+        XCTAssertEqual(matches, [
+            SearchMatch(line: 0, startColumn: 3, endColumn: 3),
+            SearchMatch(line: 1, startColumn: 3, endColumn: 3),
+            SearchMatch(line: 2, startColumn: 3, endColumn: 3),
+        ])
+    }
+
+    func testCaretDollarMatchEmptyLine() throws {
+        let buffer = DocumentBuffer(text: "foo\n\nbar")
+        let matches = try TextSearcher.allMatches(in: buffer, query: "^$", useRegex: true, caseSensitive: true)
+        XCTAssertEqual(matches, [SearchMatch(line: 1, startColumn: 0, endColumn: 0)])
+    }
+
+    func testAnchoredPatternWithContentStillMatchesNormally() throws {
+        let buffer = DocumentBuffer(text: "foo\nfoobar\nbarfoo")
+        let matches = try TextSearcher.allMatches(in: buffer, query: "^foo", useRegex: true, caseSensitive: true)
+        XCTAssertEqual(matches, [
+            SearchMatch(line: 0, startColumn: 0, endColumn: 3),
+            SearchMatch(line: 1, startColumn: 0, endColumn: 3),
+        ])
+    }
 }
