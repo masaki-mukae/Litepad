@@ -55,4 +55,11 @@ cat > "$CONTENTS/Info.plist" <<'EOF'
 </plist>
 EOF
 
+# ad-hoc署名(Apple公証ではない)を付与する。無署名のままだと、ブラウザ経由で
+# ダウンロードしたzipを展開した際にmacOS Ventura以降で「ファイルが壊れています」と
+# 表示され開けなくなる。ad-hoc署名があれば「開発元が未確認」の警告に変わり、
+# 右クリック→「開く」で起動できるようになる。
+echo "ad-hoc署名を付与中..."
+codesign --force --deep --sign - "$APP_DIR"
+
 echo "完了: SpotlightまたはFinderの ~/Applications から「Litepad」を起動できます。"
