@@ -20,6 +20,18 @@ final class LitepadDocument: NSDocument {
 
     override class var autosavesInPlace: Bool { false }
 
+    /// Info.plistにCFBundleDocumentTypesを登録していないため、既定の`writableTypes()`は
+    /// 空配列になる。これを放置すると、通常の上書き保存（⌘S）でも「現在のfileTypeが
+    /// 書き込み可能な形式に含まれない」と判定され、常に名前を付けて保存（Save As）の
+    /// パネルへ回されてしまう（既存ファイルを開いて⌘Sで保存されない原因だったバグ）。
+    override class var writableTypes: [String] {
+        [AppDocumentController.documentTypeName]
+    }
+
+    override class func isNativeType(_ type: String) -> Bool {
+        type == AppDocumentController.documentTypeName
+    }
+
     override init() {
         super.init()
         autosaveTimer = Timer.scheduledTimer(withTimeInterval: Self.autosaveInterval, repeats: true) { [weak self] _ in
