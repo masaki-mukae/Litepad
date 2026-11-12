@@ -44,6 +44,12 @@ touch "$CONTENTS/Resources/ja.lproj/InfoPlist.strings"
 write_litepad_info_plist "$CONTENTS/Info.plist"
 cp "$PROVISION_PROFILE" "$CONTENTS/embedded.provisionprofile"
 
+# ダウンロードしたprovisionprofileにはブラウザ由来のcom.apple.quarantine属性が付いている。
+# これが付いたままだと署名・pkg作成自体は成功しても、App Store Connect側のアップロード
+# 検証で「quarantine属性が含まれている」として拒否される(エラー91109)。
+echo "検疫属性(quarantine)を除去中..."
+xattr -cr "$APP_DIR"
+
 echo "Apple Distribution証明書で署名中..."
 codesign --force --deep --sign "$APP_SIGN_IDENTITY" \
     --entitlements Resources/LitepadMacAppStore.entitlements \
