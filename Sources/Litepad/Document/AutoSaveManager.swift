@@ -20,16 +20,33 @@ enum AutoSaveManager {
         directory.appendingPathComponent(id.uuidString + ".meta")
     }
 
-    /// バックアップと一緒に、元々どのファイルに紐づいていたか（保存済みドキュメントの場合）を
-    /// テキストファイルとして書いておく。復元時に「どこへ保存し直すべきか」を提案するために使う。
-    static func writeMeta(for id: UUID, originalPath: String?) {
-        guard let originalPath else { return }
-        try? originalPath.write(to: metaURL(for: id), atomically: true, encoding: .utf8)
+    /// バックアップと一緒に書き出す、元ファイルの情報。
+    /// App Sandbox環境では単なるパス文字列には次回起動後の書き込み権限が無いため、
+    /// security-scoped bookmarkも一緒に保存し、復元時にそれを解決してアクセス権を
+    /// 取り戻す（`bookmarkData`が無い/解決できない場合は`originalPath`を表示用に使う）。
+    struct Meta: Codable {
+        let originalPath: String
+        let bookmarkData: Data?
     }
 
-    static func readMeta(for backupURL: URL) -> String? {
+    /// 保存済みドキュメントの場合のみ、元々どのファイルに紐づいていたかを書いておく。
+    /// 復元時に「どこへ保存し直すべきか」を提案するために使う。
+    static func writeMeta(for id: UUID, originalURL: URL?) {
+        guard let originalURL else { return }
+        let bookmarkData = try? originalURL.bookmarkData(
+            options: .withSecurityScope,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        let meta = Meta(originalPath: originalURL.path, bookmarkData: bookmarkData)
+        guard let data = try? PropertyListEncoder().encode(meta) else { return }
+        try? data.write(to: metaURL(for: id))
+    }
+
+    static func readMeta(for backupURL: URL) -> Meta? {
         guard let id = UUID(uuidString: backupURL.deletingPathExtension().lastPathComponent) else { return nil }
-        return try? String(contentsOf: metaURL(for: id), encoding: .utf8)
+        guard let data = try? Data(contentsOf: metaURL(for: id)) else { return nil }
+        return try? PropertyListDecoder().decode(Meta.self, from: data)
     }
 
     static func removeBackup(for id: UUID) {

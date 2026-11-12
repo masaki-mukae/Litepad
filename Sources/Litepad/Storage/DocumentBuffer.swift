@@ -55,9 +55,22 @@ final class DocumentBuffer {
     /// 自動保存のバックアップなど、`fileURL`（＝ドキュメント本来の保存先）は変えたくない
     /// 書き出しに使う。拡張子に基づくシンタックスハイライト判定などが`fileURL`を参照しているため、
     /// バックアップ書き出しのたびにそれを書き換えてしまうと言語判定が壊れてしまう。
+    ///
+    /// 一時ファイルは`url`と同じディレクトリではなく`itemReplacementDirectory`
+    /// （同一ボリューム上にシステムが用意する差し替え専用の一時領域）に作る。
+    /// App Sandbox環境では、保存先ファイル自体へのアクセス権があっても、その親
+    /// ディレクトリに新規ファイルを作る権限までは無いため、兄弟ファイルとして
+    /// 一時ファイルを作る方式だと「保存できませんでした」と失敗していた。
     func writeSnapshot(to url: URL) throws {
-        let tempURL = url.deletingLastPathComponent()
-            .appendingPathComponent(".\(url.lastPathComponent).litepad-tmp-\(UUID().uuidString)")
+        let tempDir = try FileManager.default.url(
+            for: .itemReplacementDirectory,
+            in: .userDomainMask,
+            appropriateFor: url,
+            create: true
+        )
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let tempURL = tempDir.appendingPathComponent(url.lastPathComponent)
+
         FileManager.default.createFile(atPath: tempURL.path, contents: nil)
         guard let handle = FileHandle(forWritingAtPath: tempURL.path) else {
             throw CocoaError(.fileWriteUnknown)

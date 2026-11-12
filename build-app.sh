@@ -51,15 +51,60 @@ cat > "$CONTENTS/Info.plist" <<'EOF'
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>テキスト</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <!-- LitepadはTextEdit等を置き換える既定アプリではなく、あくまで選択肢の
+                 ひとつ（Finderの「このアプリケーションで開く」に出す）として登録する。
+                 Owner/Defaultにすると、インストールしただけでユーザーの意思に反して
+                 既定のテキストエディタを奪ってしまう。 -->
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.plain-text</string>
+                <string>public.text</string>
+                <string>public.utf8-plain-text</string>
+                <string>public.utf16-plain-text</string>
+                <string>public.source-code</string>
+                <string>public.swift-source</string>
+                <string>public.c-source</string>
+                <string>public.c-plus-plus-source</string>
+                <string>public.c-header</string>
+                <string>public.c-plus-plus-header</string>
+                <string>public.objective-c-source</string>
+                <string>public.objective-c-plus-plus-source</string>
+                <string>public.python-script</string>
+                <string>public.ruby-script</string>
+                <string>public.shell-script</string>
+                <string>public.perl-script</string>
+                <string>public.php-script</string>
+                <string>com.sun.java-source</string>
+                <string>public.json</string>
+                <string>public.yaml</string>
+                <string>public.xml</string>
+                <string>public.html</string>
+                <string>public.css</string>
+                <string>net.daringfireball.markdown</string>
+                <string>com.netscape.javascript-source</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>
 EOF
 
-# ad-hoc署名(Apple公証ではない)を付与する。無署名のままだと、ブラウザ経由で
-# ダウンロードしたzipを展開した際にmacOS Ventura以降で「ファイルが壊れています」と
-# 表示され開けなくなる。ad-hoc署名があれば「開発元が未確認」の警告に変わり、
-# 右クリック→「開く」で起動できるようになる。
-echo "ad-hoc署名を付与中..."
-codesign --force --deep --sign - "$APP_DIR"
+# ad-hoc署名(Apple公証ではない)を、App Sandbox entitlementsを添えて付与する。
+# 無署名のままだと、ブラウザ経由でダウンロードしたzipを展開した際にmacOS Ventura以降で
+# 「ファイルが壊れています」と表示され開けなくなる。ad-hoc署名があれば
+# 「開発元が未確認」の警告に変わり、右クリック→「開く」で起動できるようになる。
+# entitlementsはApp Store配布を見据えてサンドボックス化のため常時付与する
+# （直接配布のad-hoc署名でもサンドボックス自体は有効にできる）。
+echo "ad-hoc署名(サンドボックスentitlements付き)を付与中..."
+codesign --force --deep --sign - --entitlements Resources/Litepad.entitlements "$APP_DIR"
 
 echo "完了: SpotlightまたはFinderの ~/Applications から「Litepad」を起動できます。"

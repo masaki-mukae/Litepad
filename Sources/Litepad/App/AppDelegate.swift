@@ -41,10 +41,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func recoverBackup(at backupURL: URL) {
         guard let recoveredBuffer = try? DocumentBuffer(contentsOf: backupURL) else { return }
-        let originalPath = AutoSaveManager.readMeta(for: backupURL)
+        let meta = AutoSaveManager.readMeta(for: backupURL)
 
         let document = LitepadDocument()
-        document.adoptRecoveredContent(recoveredBuffer, originalPath: originalPath)
+        document.adoptRecoveredContent(recoveredBuffer, meta: meta)
         NSDocumentController.shared.addDocument(document)
         document.makeWindowControllers()
         document.showWindows()

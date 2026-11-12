@@ -18,6 +18,10 @@ final class LitepadDocument: NSDocument {
     /// 現在のエンコーディングがそのまま使われる。
     private var pendingSaveEncoding: TextEncodingKind?
 
+    /// クラッシュ復元でbookmarkからアクセス権を取り戻した元ファイルのURL。
+    /// `startAccessingSecurityScopedResource()`と対で、クローズ時に解放する。
+    private var securityScopedURL: URL?
+
     override class var autosavesInPlace: Bool { false }
 
     /// Info.plistにCFBundleDocumentTypesを登録していないため、既定の`writableTypes()`は
@@ -114,15 +118,37 @@ final class LitepadDocument: NSDocument {
         // close()に到達する時点で「保存する/しない」の確認は既に済んでいるため、
         // どちらの結果であれバックアップは役目を終えている。
         AutoSaveManager.removeBackup(for: autosaveID)
+        securityScopedURL?.stopAccessingSecurityScopedResource()
+        securityScopedURL = nil
         super.close()
     }
 
     /// クラッシュ・強制終了からの復元用: バックアップファイルから読み込んだ内容をそのまま
     /// 引き継ぎ、未保存の変更として扱う。`buffer`自体はバックアップファイルを読み込んだ結果
     /// なので、拡張子に基づく構文ハイライト判定だけ元のファイルパスに合わせ直す。
-    func adoptRecoveredContent(_ recoveredBuffer: DocumentBuffer, originalPath: String?) {
+    ///
+    /// App Sandbox環境では、前回起動時のパス文字列だけでは書き込み権限が無いため、
+    /// `meta`のsecurity-scoped bookmarkを解決してアクセス権を取り戻す。bookmarkが無い/
+    /// 解決できない場合（サンドボックス非対応ビルド、ファイル移動・削除など）は、
+    /// 従来通りパス文字列からURLを組み立てるだけに留める（次回保存はSave Asになる）。
+    func adoptRecoveredContent(_ recoveredBuffer: DocumentBuffer, meta: AutoSaveManager.Meta?) {
         buffer = recoveredBuffer
-        let url = originalPath.map { URL(fileURLWithPath: $0) }
+
+        var resolvedURL: URL?
+        if let bookmarkData = meta?.bookmarkData {
+            var isStale = false
+            if let url = try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: .withSecurityScope,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            ), url.startAccessingSecurityScopedResource() {
+                securityScopedURL = url
+                resolvedURL = url
+            }
+        }
+        let url = resolvedURL ?? meta.map { URL(fileURLWithPath: $0.originalPath) }
+
         buffer.reassignFileURL(url)
         fileURL = url
         updateChangeCount(.changeDone)
@@ -135,6 +161,6 @@ final class LitepadDocument: NSDocument {
         guard isDocumentEdited else { return }
         let backupURL = AutoSaveManager.backupURL(for: autosaveID)
         try? buffer.writeSnapshot(to: backupURL)
-        AutoSaveManager.writeMeta(for: autosaveID, originalPath: fileURL?.path)
+        AutoSaveManager.writeMeta(for: autosaveID, originalURL: fileURL)
     }
 }
