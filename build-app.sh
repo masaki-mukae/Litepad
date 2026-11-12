@@ -7,6 +7,12 @@ cd "$(dirname "$0")"
 echo "ビルド中(リリース構成)..."
 swift build -c release
 
+# マーケティングバージョンはこのファイルで一元管理する（リリース時にここだけ更新する）。
+# ビルド番号はコミット数から自動算出し、手動管理せずとも再提出のたびに単調増加させる
+# （App Store Connectは同じCFBundleVersionでの再アップロードを拒否するため）。
+VERSION="0.3.2"
+BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
+
 APP_DIR="$HOME/Applications/Litepad.app"
 CONTENTS="$APP_DIR/Contents"
 
@@ -20,7 +26,7 @@ cp Resources/AppIcon.icns "$CONTENTS/Resources/AppIcon.icns"
 # 「音声入力を開始」などが日本語で表示されるようになる）。
 touch "$CONTENTS/Resources/ja.lproj/InfoPlist.strings"
 
-cat > "$CONTENTS/Info.plist" <<'EOF'
+cat > "$CONTENTS/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -44,13 +50,20 @@ cat > "$CONTENTS/Info.plist" <<'EOF'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1</string>
+    <string>${VERSION}</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>${BUILD_NUMBER}</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <!-- App Store Connectの審査提出に必須のカテゴリ。開発者向けツール寄りの機能
+         （シンタックスハイライト・Grep・アウトライン）を踏まえてDeveloper Toolsを選択。
+         App Store Connect側のプライマリカテゴリ設定でいつでも変更できる。 -->
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.developer-tools</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2026 Masaki Mukae. All rights reserved.</string>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
