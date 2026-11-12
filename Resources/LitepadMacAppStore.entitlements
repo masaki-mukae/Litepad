@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <!-- Mac App Store配布専用。プロビジョニングプロファイルの内容と完全に一致させる
+         必要がある（Xcodeのビルドシステムは自動でこれを合成するが、手動codesignでは
+         自分で明示しないと「署名にapplication-identifierが無い」エラーでTestFlight/
+         審査提出が拒否される）。チームIDが変わったらプロファイル再発行と合わせて
+         ここも更新すること。 -->
+    <key>com.apple.application-identifier</key>
+    <string>NTJSZ2BQNS.com.litepad.app</string>
+    <key>com.apple.developer.team-identifier</key>
+    <string>NTJSZ2BQNS</string>
+</dict>
+</plist>

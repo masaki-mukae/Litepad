@@ -46,7 +46,7 @@ cp "$PROVISION_PROFILE" "$CONTENTS/embedded.provisionprofile"
 
 echo "Apple Distribution証明書で署名中..."
 codesign --force --deep --sign "$APP_SIGN_IDENTITY" \
-    --entitlements Resources/Litepad.entitlements \
+    --entitlements Resources/LitepadMacAppStore.entitlements \
     --options runtime \
     "$APP_DIR"
 
